@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pip's Loop Master</title>
+    <style>
+        body { background: #121212; color: #e0e0e0; font-family: sans-serif; text-align: center; padding: 30px; }
+        .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 15px; border: 1px solid #333; }
+        #player { background: #000; width: 100%; aspect-ratio: 16/9; border-radius: 8px; margin: 20px 0; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 20px; }
+        button { background: #3c3c3c; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #505050; }
+        .active { background: #c00 !important; color: white; }
+        .ab-active { background: #2ecc71 !important; }
+        input { width: 70%; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: white; margin-bottom: 10px; }
+        #status { font-family: monospace; color: #888; margin-top: 10px; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>YouTube Looper & A-B Repeat</h2>
+    
+    <input type="text" id="videoUrl" placeholder="Paste YouTube link here...">
+    <button style="background: #c00;" onclick="loadNewVideo()">LOAD</button>
+
+    <div id="player"></div>
+
+    <div id="status">Status: Waiting for input...</div>
+
+    <div class="controls">
+        <button onclick="ytPlayer.playVideo()">PLAY</button>
+        <button onclick="ytPlayer.pauseVideo()">PAUSE</button>
+        <button onclick="move(-10)">-10s</button>
+        <button onclick="move(10)">+10s</button>
+        <button id="btnA" onclick="markA()">MARK A</button>
+        <button id="btnB" onclick="markB()">MARK B</button>
+        <button id="btnLoop" onclick="toggleLoop()">LOOP: OFF</button>
+        <button id="btnAB" onclick="toggleAB()">A-B: OFF</button>
+    </div>
+</div>
+
+<script>
+    var ytPlayer;
+    var aTime = 0, bTime = 0;
+    var loopActive = false, abActive = false;
+
+    // Load API
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+
+    function onYouTubeIframeAPIReady() {
+        ytPlayer = new YT.Player('player', {
+            height: '100%', width: '100%',
+            videoId: 'dQw4w9WgXcQ', // Placeholder
+            events: { 'onStateChange': handleState, 'onReady': () => updateStatus("Ready") }
+        });
+    }
+
+    function loadNewVideo() {
+        let raw = document.getElementById('videoUrl').value;
+        let id = raw.includes('v=') ? raw.split('v=')[1].split('&')[0] : (raw.includes('be/') ? raw.split('be/')[1] : raw);
+        if(id) { ytPlayer.loadVideoById(id); updateStatus("Loading: " + id); }
+    }
+
+    function move(s) { ytPlayer.seekTo(ytPlayer.getCurrentTime() + s, true); }
+    function markA() { aTime = ytPlayer.getCurrentTime(); document.getElementById('btnA').innerText = "A: " + aTime.toFixed(1) + "s"; }
+    function markB() { bTime = ytPlayer.getCurrentTime(); document.getElementById('btnB').innerText = "B: " + bTime.toFixed(1) + "s"; }
+    
+    function toggleLoop() { loopActive = !loopActive; document.getElementById('btnLoop').innerText = "LOOP: " + (loopActive ? "ON" : "OFF"); document.getElementById('btnLoop').classList.toggle('active'); }
+    function toggleAB() { abActive = !abActive; document.getElementById('btnAB').innerText = "A-B: " + (abActive ? "ON" : "OFF"); document.getElementById('btnAB').classList.toggle('ab-active'); }
+
+    function handleState(e) {
+        if (e.data == YT.PlayerState.ENDED && loopActive) ytPlayer.playVideo();
+    }
+
+    function updateStatus(txt) { document.getElementById('status').innerText = "Status: " + txt; }
+
+    setInterval(() => {
+        if (ytPlayer && ytPlayer.getPlayerState() === 1) {
+            let curr = ytPlayer.getCurrentTime();
+            if (abActive && bTime > aTime) {
+                if (curr >= bTime || curr < aTime) ytPlayer.seekTo(aTime);
+            }
+        }
+    }, 100);
+</script>
+
+</body>
+</html>
