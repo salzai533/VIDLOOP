@@ -1,90 +1,140 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pip's Loop Master</title>
+    <title>Pip's A-B Loop Master v2</title>
     <style>
-        body { background: #121212; color: #e0e0e0; font-family: sans-serif; text-align: center; padding: 30px; }
-        .container { max-width: 800px; margin: auto; background: #1e1e1e; padding: 20px; border-radius: 15px; border: 1px solid #333; }
-        #player { background: #000; width: 100%; aspect-ratio: 16/9; border-radius: 8px; margin: 20px 0; }
-        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 20px; }
-        button { background: #3c3c3c; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #505050; }
-        .active { background: #c00 !important; color: white; }
-        .ab-active { background: #2ecc71 !important; }
-        input { width: 70%; padding: 12px; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: white; margin-bottom: 10px; }
-        #status { font-family: monospace; color: #888; margin-top: 10px; font-size: 0.85em; }
+        body { background: #0f0f0f; color: #eee; font-family: sans-serif; text-align: center; padding: 20px; }
+        .container { max-width: 700px; margin: auto; background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #333; }
+        #player { width: 100%; aspect-ratio: 16/9; border-radius: 8px; margin-bottom: 20px; background: #000; }
+        
+        /* Dual Slider Styling */
+        .slider-wrapper { position: relative; width: 100%; height: 50px; margin: 20px 0; }
+        input[type="range"] {
+            position: absolute; left: 0; width: 100%; pointer-events: none;
+            appearance: none; background: none; margin: 0;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none; pointer-events: all; width: 18px; height: 18px;
+            background: #ff0000; border-radius: 50%; cursor: pointer; border: 2px solid #fff;
+        }
+        /* Track background */
+        .track { position: absolute; top: 8px; width: 100%; height: 4px; background: #444; z-index: 0; }
+        .highlight { position: absolute; top: 8px; height: 4px; background: #ff0000; z-index: 1; }
+        .playhead { position: absolute; top: 0; height: 20px; width: 2px; background: #2ecc71; z-index: 2; }
+
+        .controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
+        button { background: #333; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #444; }
+        .btn-active { background: #ff0000 !important; }
+        input[type="text"] { width: 70%; padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>YouTube Looper & A-B Repeat</h2>
-    
-    <input type="text" id="videoUrl" placeholder="Paste YouTube link here...">
-    <button style="background: #c00;" onclick="loadNewVideo()">LOAD</button>
+    <input type="text" id="vUrl" placeholder="Paste YouTube link...">
+    <button onclick="loadVideo()" style="background:#cc0000">LOAD</button>
 
     <div id="player"></div>
 
-    <div id="status">Status: Waiting for input...</div>
+    <div class="slider-wrapper">
+        <div class="track"></div>
+        <div id="highlight" class="highlight"></div>
+        <div id="playhead" class="playhead"></div>
+        <input type="range" id="sliderA" value="0" min="0" max="100" step="0.1" oninput="updateFromSlider()">
+        <input type="range" id="sliderB" value="100" min="0" max="100" step="0.1" oninput="updateFromSlider()">
+    </div>
+
+    <div id="timeLabel">Looping: 0s to End</div>
 
     <div class="controls">
-        <button onclick="ytPlayer.playVideo()">PLAY</button>
-        <button onclick="ytPlayer.pauseVideo()">PAUSE</button>
-        <button onclick="move(-10)">-10s</button>
-        <button onclick="move(10)">+10s</button>
-        <button id="btnA" onclick="markA()">MARK A</button>
-        <button id="btnB" onclick="markB()">MARK B</button>
-        <button id="btnLoop" onclick="toggleLoop()">LOOP: OFF</button>
-        <button id="btnAB" onclick="toggleAB()">A-B: OFF</button>
+        <button onclick="player.playVideo()">PLAY</button>
+        <button onclick="player.pauseVideo()">PAUSE</button>
+        <button onclick="seek(-10)">-10s</button>
+        <button onclick="seek(10)">+10s</button>
+        <button id="abToggle" onclick="toggleAB()" style="grid-column: span 4;">A-B LOOP: OFF</button>
     </div>
 </div>
 
 <script>
-    var ytPlayer;
-    var aTime = 0, bTime = 0;
-    var loopActive = false, abActive = false;
-
-    // Load API
+    var player, duration = 0, abEnabled = false;
     var tag = document.createElement('script');
     tag.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(tag);
 
     function onYouTubeIframeAPIReady() {
-        ytPlayer = new YT.Player('player', {
-            height: '100%', width: '100%',
-            videoId: 'dQw4w9WgXcQ', // Placeholder
-            events: { 'onStateChange': handleState, 'onReady': () => updateStatus("Ready") }
+        player = new YT.Player('player', {
+            height: '100%', width: '100%', videoId: 'dQw4w9WgXcQ',
+            events: { 'onReady': onPlayerReady }
         });
     }
 
-    function loadNewVideo() {
-        let raw = document.getElementById('videoUrl').value;
-        let id = raw.includes('v=') ? raw.split('v=')[1].split('&')[0] : (raw.includes('be/') ? raw.split('be/')[1] : raw);
-        if(id) { ytPlayer.loadVideoById(id); updateStatus("Loading: " + id); }
+    function onPlayerReady() {
+        setInterval(syncUI, 100);
     }
 
-    function move(s) { ytPlayer.seekTo(ytPlayer.getCurrentTime() + s, true); }
-    function markA() { aTime = ytPlayer.getCurrentTime(); document.getElementById('btnA').innerText = "A: " + aTime.toFixed(1) + "s"; }
-    function markB() { bTime = ytPlayer.getCurrentTime(); document.getElementById('btnB').innerText = "B: " + bTime.toFixed(1) + "s"; }
-    
-    function toggleLoop() { loopActive = !loopActive; document.getElementById('btnLoop').innerText = "LOOP: " + (loopActive ? "ON" : "OFF"); document.getElementById('btnLoop').classList.toggle('active'); }
-    function toggleAB() { abActive = !abActive; document.getElementById('btnAB').innerText = "A-B: " + (abActive ? "ON" : "OFF"); document.getElementById('btnAB').classList.toggle('ab-active'); }
-
-    function handleState(e) {
-        if (e.data == YT.PlayerState.ENDED && loopActive) ytPlayer.playVideo();
+    function loadVideo() {
+        let val = document.getElementById('vUrl').value;
+        let id = val.includes('v=') ? val.split('v=')[1].split('&')[0] : val;
+        player.loadVideoById(id);
+        abEnabled = false;
+        document.getElementById('abToggle').classList.remove('btn-active');
     }
 
-    function updateStatus(txt) { document.getElementById('status').innerText = "Status: " + txt; }
+    function updateFromSlider() {
+        let sA = document.getElementById('sliderA');
+        let sB = document.getElementById('sliderB');
+        
+        // Prevent handles from crossing
+        if (parseFloat(sA.value) > parseFloat(sB.value)) {
+            let temp = sA.value;
+            sA.value = sB.value;
+            sB.value = temp;
+        }
+        drawSlider();
+    }
 
-    setInterval(() => {
-        if (ytPlayer && ytPlayer.getPlayerState() === 1) {
-            let curr = ytPlayer.getCurrentTime();
-            if (abActive && bTime > aTime) {
-                if (curr >= bTime || curr < aTime) ytPlayer.seekTo(aTime);
+    function drawSlider() {
+        duration = player.getDuration();
+        let valA = document.getElementById('sliderA').value;
+        let valB = document.getElementById('sliderB').value;
+        
+        let hl = document.getElementById('highlight');
+        hl.style.left = valA + "%";
+        hl.style.width = (valB - valA) + "%";
+
+        let timeA = (valA / 100) * duration;
+        let timeB = (valB / 100) * duration;
+        document.getElementById('timeLabel').innerText = `Loop: ${timeA.toFixed(1)}s - ${timeB.toFixed(1)}s`;
+    }
+
+    function syncUI() {
+        if (!player || !player.getDuration) return;
+        duration = player.getDuration();
+        let curr = player.getCurrentTime();
+        
+        // Move Playhead
+        let percent = (curr / duration) * 100;
+        document.getElementById('playhead').style.left = percent + "%";
+
+        // Logic for A-B Loop
+        if (abEnabled) {
+            let timeA = (document.getElementById('sliderA').value / 100) * duration;
+            let timeB = (document.getElementById('sliderB').value / 100) * duration;
+            if (curr >= timeB || curr < timeA) {
+                player.seekTo(timeA);
             }
         }
-    }, 100);
-</script>
+    }
 
+    function toggleAB() {
+        abEnabled = !abEnabled;
+        let btn = document.getElementById('abToggle');
+        btn.innerText = abEnabled ? "A-B LOOP: ON" : "A-B LOOP: OFF";
+        btn.classList.toggle('btn-active');
+    }
+
+    function seek(s) { player.seekTo(player.getCurrentTime() + s, true); }
+</script>
 </body>
 </html>
