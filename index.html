@@ -1,58 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pip's A-B Loop Master v2</title>
+    <title>Pip's Pastel Looper</title>
     <style>
-        body { background: #0f0f0f; color: #eee; font-family: sans-serif; text-align: center; padding: 20px; }
-        .container { max-width: 700px; margin: auto; background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #333; }
-        #player { width: 100%; aspect-ratio: 16/9; border-radius: 8px; margin-bottom: 20px; background: #000; }
-        
-        /* Dual Slider Styling */
-        .slider-wrapper { position: relative; width: 100%; height: 50px; margin: 20px 0; }
-        input[type="range"] {
-            position: absolute; left: 0; width: 100%; pointer-events: none;
-            appearance: none; background: none; margin: 0;
+        /* Pastel Palette */
+        :root {
+            --bg: #f3e5f5;      /* Lavender Gray */
+            --container: #ffffff;
+            --indigo: #5c6bc0;  /* Indigo */
+            --blue: #81d4fa;    /* Light Blue */
+            --purple: #ce93d8;  /* Pastel Purple */
+            --text: #455a64;    /* Blue-Grey */
+            --accent: #9fa8da;  /* Soft Indigo */
         }
-        input[type="range"]::-webkit-slider-thumb {
-            appearance: none; pointer-events: all; width: 18px; height: 18px;
-            background: #ff0000; border-radius: 50%; cursor: pointer; border: 2px solid #fff;
-        }
-        /* Track background */
-        .track { position: absolute; top: 8px; width: 100%; height: 4px; background: #444; z-index: 0; }
-        .highlight { position: absolute; top: 8px; height: 4px; background: #ff0000; z-index: 1; }
-        .playhead { position: absolute; top: 0; height: 20px; width: 2px; background: #2ecc71; z-index: 2; }
 
-        .controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
-        button { background: #333; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #444; }
-        .btn-active { background: #ff0000 !important; }
-        input[type="text"] { width: 70%; padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 5px; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; text-align: center; padding: 20px; }
+        .container { max-width: 750px; margin: auto; background: var(--container); padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        #player { width: 100%; aspect-ratio: 16/9; border-radius: 12px; margin-bottom: 20px; background: #eee; border: 4px solid var(--purple); }
+        
+        .slider-wrapper { position: relative; width: 100%; height: 50px; margin: 25px 0; }
+        input[type="range"] { position: absolute; left: 0; width: 100%; pointer-events: none; appearance: none; background: none; margin: 0; z-index: 3; }
+        input[type="range"]::-webkit-slider-thumb { appearance: none; pointer-events: all; width: 22px; height: 22px; background: var(--indigo); border-radius: 50%; cursor: pointer; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        .track { position: absolute; top: 10px; width: 100%; height: 8px; background: #e0e0e0; z-index: 0; border-radius: 4px; }
+        .highlight { position: absolute; top: 10px; height: 8px; background: var(--blue); z-index: 1; opacity: 0.8; }
+        .playhead { position: absolute; top: 0px; height: 30px; width: 4px; background: var(--purple); z-index: 2; border-radius: 2px; }
+
+        .time-display { display: flex; justify-content: space-between; margin: 10px 0; font-weight: bold; color: var(--indigo); font-family: monospace; }
+        .controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+        button { background: var(--purple); color: white; border: none; padding: 14px; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: var(--indigo); }
+        .btn-active { background: var(--blue) !important; color: #333; }
+        input[type="text"] { width: 75%; padding: 12px; border-radius: 8px; border: 2px solid var(--purple); background: white; color: var(--text); margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <input type="text" id="vUrl" placeholder="Paste YouTube link...">
-    <button onclick="loadVideo()" style="background:#cc0000">LOAD</button>
+    <button onclick="loadVideo()">LOAD VIDEO</button>
 
     <div id="player"></div>
+
+    <div class="time-display">
+        <div>A: <span id="labelA">00:00:00.00</span></div>
+        <div>B: <span id="labelB">00:00:00.00</span></div>
+    </div>
 
     <div class="slider-wrapper">
         <div class="track"></div>
         <div id="highlight" class="highlight"></div>
         <div id="playhead" class="playhead"></div>
-        <input type="range" id="sliderA" value="0" min="0" max="100" step="0.1" oninput="updateFromSlider()">
-        <input type="range" id="sliderB" value="100" min="0" max="100" step="0.1" oninput="updateFromSlider()">
+        <input type="range" id="sliderA" value="0" min="0" max="100" step="0.01" oninput="updateFromSlider()">
+        <input type="range" id="sliderB" value="100" min="0" max="100" step="0.01" oninput="updateFromSlider()">
     </div>
-
-    <div id="timeLabel">Looping: 0s to End</div>
 
     <div class="controls">
         <button onclick="player.playVideo()">PLAY</button>
         <button onclick="player.pauseVideo()">PAUSE</button>
         <button onclick="seek(-10)">-10s</button>
         <button onclick="seek(10)">+10s</button>
-        <button id="abToggle" onclick="toggleAB()" style="grid-column: span 4;">A-B LOOP: OFF</button>
+        <button id="abToggle" onclick="toggleAB()" style="grid-column: span 4;">ACTIVATE A-B LOOP</button>
     </div>
 </div>
 
@@ -64,73 +72,59 @@
 
     function onYouTubeIframeAPIReady() {
         player = new YT.Player('player', {
-            height: '100%', width: '100%', videoId: 'dQw4w9WgXcQ',
-            events: { 'onReady': onPlayerReady }
+            height: '100%', width: '100%', 
+            videoId: 'dQw4w9WgXcQ',
+            events: { 'onReady': () => setInterval(syncUI, 50) }
         });
     }
 
-    function onPlayerReady() {
-        setInterval(syncUI, 100);
+    function formatTime(s) {
+        let date = new Date(0); date.setSeconds(s);
+        let hh = date.getUTCHours().toString().padStart(2, '0');
+        let mm = date.getUTCMinutes().toString().padStart(2, '0');
+        let ss = date.getUTCSeconds().toString().padStart(2, '0');
+        let ms = (s % 1).toFixed(2).substring(2);
+        return `${hh}:${mm}:${ss}.${ms}`;
     }
 
     function loadVideo() {
         let val = document.getElementById('vUrl').value;
-        let id = val.includes('v=') ? val.split('v=')[1].split('&')[0] : val;
-        player.loadVideoById(id);
-        abEnabled = false;
-        document.getElementById('abToggle').classList.remove('btn-active');
+        let id = val.includes('v=') ? val.split('v=')[1].split('&')[0] : (val.includes('be/') ? val.split('be/')[1] : val);
+        if(id) player.loadVideoById(id);
     }
 
     function updateFromSlider() {
-        let sA = document.getElementById('sliderA');
-        let sB = document.getElementById('sliderB');
-        
-        // Prevent handles from crossing
-        if (parseFloat(sA.value) > parseFloat(sB.value)) {
-            let temp = sA.value;
-            sA.value = sB.value;
-            sB.value = temp;
-        }
+        let sA = document.getElementById('sliderA'), sB = document.getElementById('sliderB');
+        if (parseFloat(sA.value) > parseFloat(sB.value)) [sA.value, sB.value] = [sB.value, sA.value];
         drawSlider();
     }
 
     function drawSlider() {
         duration = player.getDuration();
-        let valA = document.getElementById('sliderA').value;
-        let valB = document.getElementById('sliderB').value;
-        
-        let hl = document.getElementById('highlight');
-        hl.style.left = valA + "%";
-        hl.style.width = (valB - valA) + "%";
-
-        let timeA = (valA / 100) * duration;
-        let timeB = (valB / 100) * duration;
-        document.getElementById('timeLabel').innerText = `Loop: ${timeA.toFixed(1)}s - ${timeB.toFixed(1)}s`;
+        let valA = document.getElementById('sliderA').value, valB = document.getElementById('sliderB').value;
+        document.getElementById('highlight').style.left = valA + "%";
+        document.getElementById('highlight').style.width = (valB - valA) + "%";
+        document.getElementById('labelA').innerText = formatTime((valA / 100) * duration);
+        document.getElementById('labelB').innerText = formatTime((valB / 100) * duration);
     }
 
     function syncUI() {
         if (!player || !player.getDuration) return;
         duration = player.getDuration();
         let curr = player.getCurrentTime();
-        
-        // Move Playhead
-        let percent = (curr / duration) * 100;
-        document.getElementById('playhead').style.left = percent + "%";
-
-        // Logic for A-B Loop
+        document.getElementById('playhead').style.left = ((curr / duration) * 100) + "%";
         if (abEnabled) {
-            let timeA = (document.getElementById('sliderA').value / 100) * duration;
-            let timeB = (document.getElementById('sliderB').value / 100) * duration;
-            if (curr >= timeB || curr < timeA) {
-                player.seekTo(timeA);
-            }
+            let tA = (document.getElementById('sliderA').value / 100) * duration;
+            let tB = (document.getElementById('sliderB').value / 100) * duration;
+            if (curr >= tB || curr < tA) player.seekTo(tA);
         }
+        if(duration > 0) drawSlider();
     }
 
     function toggleAB() {
         abEnabled = !abEnabled;
         let btn = document.getElementById('abToggle');
-        btn.innerText = abEnabled ? "A-B LOOP: ON" : "A-B LOOP: OFF";
+        btn.innerText = abEnabled ? "LOOP ACTIVE" : "ACTIVATE A-B LOOP";
         btn.classList.toggle('btn-active');
     }
 
